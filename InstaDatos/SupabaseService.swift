@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Combine
 
 enum SupabaseConfig {
     static let url = URL(string: "https://imcsnudboiqabogtniqq.supabase.co")!
@@ -70,7 +71,7 @@ final class SupabaseService: ObservableObject {
             let id: Int64
         }
 
-        let existing = try await client.database
+        let existing = try await client
             .from("users")
             .select("id")
             .eq("correo", value: correo)
@@ -102,7 +103,7 @@ final class SupabaseService: ObservableObject {
 
         // Con RLS desactivado, un insert simple suele ser suficiente.
         // Si en el futuro pones unique(correo), cambia esto a upsert con onConflict.
-        _ = try await client.database.from("users").insert(payload).execute()
+        _ = try await client.from("users").insert(payload).execute()
     }
 }
 
