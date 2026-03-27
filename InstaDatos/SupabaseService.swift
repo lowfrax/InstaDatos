@@ -8,7 +8,7 @@ enum SupabaseConfig {
     static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltY3NudWRib2lxYWJvZ3RuaXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTg0MTIsImV4cCI6MjA5MDE3NDQxMn0.aTnsA_GqH5YteUDsfr8JMk10btBgYxvroppCsPkvO5c"
 }
 
-private struct CreateUserSchemaParams: Encodable, Sendable {
+private nonisolated struct CreateUserSchemaParams: Encodable, Sendable {
     let user_id: Int64
 }
 
