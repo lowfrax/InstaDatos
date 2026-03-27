@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RegistroDetailView: View {
     @EnvironmentObject private var store: RegistroStore
+    @EnvironmentObject private var supabase: SupabaseService
     let registro: Registro
 
     @StateObject private var transcriber = SpeechTranscriber()
@@ -182,8 +183,19 @@ struct RegistroDetailView: View {
         store.appendMessage(ChatMessage(role: .user, text: trimmed), to: registro.id)
         composerText = ""
 
-        // Placeholder: aquí luego conectaremos a n8n y agregaremos respuesta "system".
-        store.appendMessage(ChatMessage(role: .system, text: "Recibido. (Luego lo enviaremos a n8n)"), to: registro.id)
+        Task {
+            do {
+                try await WebhookService.sendRegistroMessage(
+                    registroNombre: registro.nombre,
+                    mensaje: trimmed,
+                    userId: supabase.dbUserID,
+                    correo: supabase.authEmail
+                )
+                store.appendMessage(ChatMessage(role: .system, text: "Enviado al webhook."), to: registro.id)
+            } catch {
+                store.appendMessage(ChatMessage(role: .system, text: "Error enviando webhook: \(error.localizedDescription)"), to: registro.id)
+            }
+        }
     }
 }
 
@@ -191,6 +203,7 @@ struct RegistroDetailView: View {
     NavigationStack {
         RegistroDetailView(registro: Registro(nombre: "Demo"))
             .environmentObject(RegistroStore())
+            .environmentObject(SupabaseService.shared)
     }
 }
 

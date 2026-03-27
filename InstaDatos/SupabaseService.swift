@@ -1,6 +1,7 @@
 import Foundation
 import Supabase
 import Combine
+import CryptoKit
 
 enum SupabaseConfig {
     static let url = URL(string: "https://imcsnudboiqabogtniqq.supabase.co")!
@@ -15,6 +16,7 @@ final class SupabaseService: ObservableObject {
 
     @Published var isSignedIn: Bool = false
     @Published var authEmail: String?
+    @Published var dbUserID: Int64?
 
     private init() {
         client = SupabaseClient(
@@ -32,9 +34,15 @@ final class SupabaseService: ObservableObject {
             let session = try await client.auth.session
             isSignedIn = session.user.email != nil
             authEmail = session.user.email
+            if let email = session.user.email {
+                dbUserID = try? await fetchDBUserID(correo: email)
+            } else {
+                dbUserID = nil
+            }
         } catch {
             isSignedIn = false
             authEmail = nil
+            dbUserID = nil
         }
     }
 
@@ -44,7 +52,7 @@ final class SupabaseService: ObservableObject {
 
         // Con RLS desactivado, garantizamos que exista un perfil en public.users.
         let correo = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        try? await ensureDBUserExists(correo: correo)
+        dbUserID = try? await ensureDBUserExists(correo: correo)
     }
 
     func signUp(nombre: String, correo: String, password: String, telefono: String?) async throws {
@@ -53,12 +61,17 @@ final class SupabaseService: ObservableObject {
         await refreshSession()
 
         // RLS desactivado: creamos el perfil en public.users como paso requerido.
-        // Nota: no guardamos contraseñas en texto plano en la tabla.
-        try await upsertDBUser(
+        // Guardamos un hash (no texto plano) en public.users.password.
+        let userID = try await insertDBUser(
             nombre: nombre.trimmingCharacters(in: .whitespacesAndNewlines),
             correo: correoTrimmed,
-            telefono: telefono
+            telefono: telefono,
+            passwordHash: Self.hashPassword(password)
         )
+        dbUserID = userID
+
+        // Creamos schema por usuario vía RPC (debes crear el RPC en Supabase, ver nota).
+        try await createUserSchema(userId: userID)
     }
 
     func signOut() async {
@@ -66,31 +79,31 @@ final class SupabaseService: ObservableObject {
         await refreshSession()
     }
 
-    private func ensureDBUserExists(correo: String) async throws {
-        struct DBUserRow: Decodable {
-            let id: Int64
-        }
-
-        let existing = try await client
+    private func fetchDBUserID(correo: String) async throws -> Int64? {
+        struct DBUserRow: Decodable { let id: Int64 }
+        let rows: [DBUserRow] = try await client
             .from("users")
             .select("id")
             .eq("correo", value: correo)
             .limit(1)
             .execute()
-            .value as [DBUserRow]
-
-        if existing.isEmpty {
-            try await upsertDBUser(nombre: nil, correo: correo, telefono: nil)
-        }
+            .value
+        return rows.first?.id
     }
 
-    private func upsertDBUser(nombre: String?, correo: String, telefono: String?) async throws {
+    private func ensureDBUserExists(correo: String) async throws -> Int64 {
+        if let id = try await fetchDBUserID(correo: correo) { return id }
+        return try await insertDBUser(nombre: nil, correo: correo, telefono: nil, passwordHash: nil)
+    }
+
+    private func insertDBUser(nombre: String?, correo: String, telefono: String?, passwordHash: String?) async throws -> Int64 {
         struct DBUserInsert: Encodable {
             let nombre: String?
             let correo: String?
             let password: String?
             let telefono: Int64?
         }
+        struct DBUserRow: Decodable { let id: Int64 }
 
         let telValue: Int64?
         if let telefono, !telefono.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -99,11 +112,30 @@ final class SupabaseService: ObservableObject {
             telValue = nil
         }
 
-        let payload = DBUserInsert(nombre: nombre, correo: correo, password: nil, telefono: telValue)
+        let payload = DBUserInsert(nombre: nombre, correo: correo, password: passwordHash, telefono: telValue)
 
-        // Con RLS desactivado, un insert simple suele ser suficiente.
-        // Si en el futuro pones unique(correo), cambia esto a upsert con onConflict.
-        _ = try await client.from("users").insert(payload).execute()
+        // Pedimos que devuelva el id insertado.
+        let inserted: [DBUserRow] = try await client
+            .from("users")
+            .insert(payload)
+            .select("id")
+            .execute()
+            .value
+
+        guard let id = inserted.first?.id else {
+            throw NSError(domain: "SupabaseService", code: 2, userInfo: [NSLocalizedDescriptionKey: "No se pudo obtener el id del usuario insertado."])
+        }
+        return id
+    }
+
+    private func createUserSchema(userId: Int64) async throws {
+        struct Params: Encodable { let user_id: Int64 }
+        _ = try await client.rpc("create_user_schema", params: Params(user_id: userId)).execute()
+    }
+
+    private static func hashPassword(_ password: String) -> String {
+        let digest = SHA256.hash(data: Data(password.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 

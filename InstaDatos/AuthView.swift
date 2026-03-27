@@ -12,6 +12,7 @@ struct AuthView: View {
 
     @State private var isBusy = false
     @State private var errorText: String?
+    @State private var successText: String?
 
     enum Mode: String, CaseIterable {
         case login = "Iniciar sesión"
@@ -69,6 +70,11 @@ struct AuthView: View {
                                     .font(.footnote)
                                     .foregroundStyle(.red.opacity(0.85))
                             }
+                            if let successText {
+                                Text(successText)
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(AppTheme.cocoa)
+                            }
 
                             Button {
                                 Task { await submit() }
@@ -96,6 +102,7 @@ struct AuthView: View {
 
     private func submit() async {
         errorText = nil
+        successText = nil
         isBusy = true
         defer { isBusy = false }
 
@@ -111,6 +118,10 @@ struct AuthView: View {
                     password: password,
                     telefono: telefono.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
+                // Al crear usuario, regresamos automáticamente a Login.
+                mode = .login
+                password = ""
+                successText = "Cuenta creada. Ahora inicia sesión."
             }
         } catch {
             errorText = error.localizedDescription
