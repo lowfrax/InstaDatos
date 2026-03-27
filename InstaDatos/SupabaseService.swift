@@ -8,6 +8,10 @@ enum SupabaseConfig {
     static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltY3NudWRib2lxYWJvZ3RuaXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTg0MTIsImV4cCI6MjA5MDE3NDQxMn0.aTnsA_GqH5YteUDsfr8JMk10btBgYxvroppCsPkvO5c"
 }
 
+private struct CreateUserSchemaParams: Encodable, Sendable {
+    let user_id: Int64
+}
+
 @MainActor
 final class SupabaseService: ObservableObject {
     static let shared = SupabaseService()
@@ -129,8 +133,9 @@ final class SupabaseService: ObservableObject {
     }
 
     private func createUserSchema(userId: Int64) async throws {
-        struct Params: Encodable { let user_id: Int64 }
-        _ = try await client.rpc("create_user_schema", params: Params(user_id: userId)).execute()
+        _ = try await client
+            .rpc("create_user_schema", params: CreateUserSchemaParams(user_id: userId))
+            .execute()
     }
 
     private static func hashPassword(_ password: String) -> String {
