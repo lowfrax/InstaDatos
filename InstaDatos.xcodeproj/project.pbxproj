@@ -65,6 +65,7 @@
 			);
 			name = InstaDatos;
 			packageProductDependencies = (
+				0A7B5EC42F76A0D300146DCE /* Supabase */,
 			);
 			productName = InstaDatos;
 			productReference = 0A7B5EB62F76930E00146DCE /* InstaDatos.app */;
@@ -94,6 +95,9 @@
 			);
 			mainGroup = 0A7B5EAD2F76930E00146DCE;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0A7B5EC52F76A0D300146DCE /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A7B5EB72F76930E00146DCE /* Products */;
 			projectDirPath = "";
@@ -103,6 +107,25 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0A7B5EC52F76A0D300146DCE /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0A7B5EC42F76A0D300146DCE /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0A7B5EC52F76A0D300146DCE /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXResourcesBuildPhase section */
 		0A7B5EB42F76930E00146DCE /* Resources */ = {
@@ -253,6 +276,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Necesitamos acceso al micrófono para transcribir tu voz a texto.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Necesitamos reconocimiento de voz para convertir audio en texto.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +309,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Necesitamos acceso al micrófono para transcribir tu voz a texto.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Necesitamos reconocimiento de voz para convertir audio en texto.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
