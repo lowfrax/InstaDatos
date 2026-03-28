@@ -75,8 +75,8 @@ final class SpeechTranscriber: ObservableObject {
 
         if audioEngine.isRunning {
             audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
         }
+        audioEngine.inputNode.removeTap(onBus: 0)
 
         if case .listening = state {
             state = .idle
@@ -85,7 +85,11 @@ final class SpeechTranscriber: ObservableObject {
 
     private func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .spokenAudio, options: [.duckOthers, .allowBluetooth])
+        // Reinicio limpio evita estados inválidos que terminen en OSStatus -50.
+        try? session.setActive(false, options: .notifyOthersOnDeactivation)
+        // .measurement + grabación es lo que recomienda Apple para reconocimiento en vivo.
+        try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
+        try? session.setPreferredSampleRate(44_100)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
     }
 
@@ -94,15 +98,24 @@ final class SpeechTranscriber: ObservableObject {
             throw NSError(domain: "SpeechTranscriber", code: 1, userInfo: [NSLocalizedDescriptionKey: "Reconocedor no disponible ahora."])
         }
 
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.reset()
+        audioEngine.inputNode.removeTap(onBus: 0)
+
         request?.endAudio()
         request = SFSpeechAudioBufferRecognitionRequest()
         request?.shouldReportPartialResults = true
+        if #available(iOS 13, *) {
+            request?.requiresOnDeviceRecognition = false
+        }
 
         let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-
-        inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
+        // CRÍTICO: usar format: nil (formato nativo del hardware). outputFormat/inputFormat
+        // incorrectos provocan paramErr -50 al instalar el tap.
+        let bus: AVAudioNodeBus = 0
+        inputNode.installTap(onBus: bus, bufferSize: 1024, format: nil) { [weak self] buffer, _ in
             self?.request?.append(buffer)
         }
 
@@ -117,6 +130,11 @@ final class SpeechTranscriber: ObservableObject {
                 }
             }
             if let error {
+                let ns = error as NSError
+                // 216 = solicitud cancelada (típico al pulsar de nuevo el micrófono).
+                if ns.domain == "kAFAssistantErrorDomain", ns.code == 216 {
+                    return
+                }
                 Task { @MainActor in
                     self.stop()
                     self.state = .error(error.localizedDescription)
