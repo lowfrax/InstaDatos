@@ -3,16 +3,16 @@ import Combine
 
 @MainActor
 final class RegistroStore: ObservableObject {
-    @Published var registros: [Registro] = [
-        Registro(nombre: "Demo")
-    ]
+    @Published var registros: [Registro] = []
 
     @Published var messagesByRegistroID: [UUID: [ChatMessage]] = [:]
 
-    func createRegistro(nombre: String) -> Registro {
-        let r = Registro(nombre: nombre)
+    func setRegistros(_ items: [Registro]) {
+        registros = items
+    }
+
+    func addRegistro(_ r: Registro) {
         registros.insert(r, at: 0)
-        return r
     }
 
     func messages(for registroID: UUID) -> [ChatMessage] {

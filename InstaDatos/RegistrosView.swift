@@ -2,16 +2,37 @@ import SwiftUI
 
 struct RegistrosView: View {
     @EnvironmentObject private var store: RegistroStore
+    @EnvironmentObject private var supabase: SupabaseService
 
     @State private var newName: String = ""
     @State private var showingCreate = false
+    @State private var loadError: String?
+    @State private var createError: String?
+    @State private var isLoading = false
+    @State private var isCreating = false
 
     var body: some View {
         ZStack {
             AppTheme.bg.ignoresSafeArea()
 
             VStack(spacing: 12) {
-                if store.registros.isEmpty {
+                if let loadError {
+                    Text(loadError)
+                        .font(.footnote)
+                        .foregroundStyle(.red.opacity(0.85))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if let createError {
+                    Text(createError)
+                        .font(.footnote)
+                        .foregroundStyle(.red.opacity(0.85))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if isLoading && store.registros.isEmpty {
+                    ProgressView()
+                        .tint(AppTheme.accent)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if store.registros.isEmpty {
                     emptyState
                 } else {
                     list
@@ -21,6 +42,9 @@ struct RegistrosView: View {
         }
         .navigationTitle("Registros")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await reloadRegistros()
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -37,6 +61,19 @@ struct RegistrosView: View {
         }
     }
 
+    private func reloadRegistros() async {
+        loadError = nil
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await supabase.ensureWorkspaceReady()
+            let rows = try await supabase.fetchRegistros()
+            store.setRegistros(rows)
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
     private var list: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
@@ -44,6 +81,7 @@ struct RegistrosView: View {
                     NavigationLink {
                         RegistroDetailView(registro: r)
                             .environmentObject(store)
+                            .environmentObject(supabase)
                     } label: {
                         SoftCard {
                             HStack {
@@ -96,14 +134,33 @@ struct RegistrosView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     SoftTextField(title: "Nombre del registro", text: $newName, textContentType: .nickname)
 
+                    if let createError {
+                        Text(createError)
+                            .font(.footnote)
+                            .foregroundStyle(.red.opacity(0.85))
+                    }
+
                     Button("Crear") {
-                        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty else { return }
-                        _ = store.createRegistro(nombre: trimmed)
-                        newName = ""
-                        showingCreate = false
+                        Task {
+                            createError = nil
+                            let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            isCreating = true
+                            defer { isCreating = false }
+                            do {
+                                try await supabase.ensureWorkspaceReady()
+                                let rowId = try await supabase.insertRegistro(nombre: trimmed, estado: "activo")
+                                let r = Registro(dbRowId: rowId, nombre: trimmed, estado: "activo")
+                                store.addRegistro(r)
+                                newName = ""
+                                showingCreate = false
+                            } catch {
+                                createError = error.localizedDescription
+                            }
+                        }
                     }
                     .buttonStyle(SoftButtonStyle())
+                    .disabled(isCreating)
 
                     Spacer()
                 }
@@ -126,6 +183,7 @@ struct RegistrosView: View {
     NavigationStack {
         RegistrosView()
             .environmentObject(RegistroStore())
+            .environmentObject(SupabaseService.shared)
     }
 }
 

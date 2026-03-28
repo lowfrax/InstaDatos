@@ -63,6 +63,9 @@ final class SupabaseService: ObservableObject {
         // Con RLS desactivado, garantizamos que exista un perfil en public.users.
         let correo = email.trimmingCharacters(in: .whitespacesAndNewlines)
         dbUserID = try? await ensureDBUserExists(correo: correo)
+        if let uid = dbUserID {
+            try? await callCreateUserSchemaRPC(userId: uid)
+        }
     }
 
     func signUp(nombre: String, correo: String, password: String, telefono: String?) async throws {
@@ -81,12 +84,82 @@ final class SupabaseService: ObservableObject {
         dbUserID = userID
 
         // Creamos schema por usuario vía RPC (debes crear el RPC en Supabase, ver nota).
-        try await createUserSchema(userId: userID)
+        try await callCreateUserSchemaRPC(userId: userID)
     }
 
     func signOut() async {
         do { try await client.auth.signOut() } catch {}
         await refreshSession()
+    }
+
+    /// Idempotente: crea `user_<id>` y la tabla `registros` si faltan.
+    func ensureWorkspaceReady() async throws {
+        guard let uid = dbUserID else {
+            throw NSError(domain: "SupabaseService", code: 3, userInfo: [NSLocalizedDescriptionKey: "No hay usuario en public.users."])
+        }
+        try await callCreateUserSchemaRPC(userId: uid)
+    }
+
+    /// Inserta en `user_<dbUserID>.registros` y devuelve el `id` de la fila.
+    func insertRegistro(nombre: String, estado: String = "activo") async throws -> Int64 {
+        guard let uid = dbUserID else {
+            throw NSError(domain: "SupabaseService", code: 4, userInfo: [NSLocalizedDescriptionKey: "Sesión sin id de public.users."])
+        }
+        struct Insert: Encodable, Sendable {
+            let nombre: String
+            let estado: String
+        }
+        struct Row: Decodable, Sendable { let id: Int64 }
+
+        let schema = UserSchemaNaming.schemaName(publicUsersId: uid)
+        let inserted: [Row] = try await client
+            .schema(schema)
+            .from("registros")
+            .insert(Insert(nombre: nombre, estado: estado))
+            .select("id")
+            .execute()
+            .value
+
+        guard let id = inserted.first?.id else {
+            throw NSError(domain: "SupabaseService", code: 5, userInfo: [NSLocalizedDescriptionKey: "Insert sin id devuelto."])
+        }
+        return id
+    }
+
+    func fetchRegistros() async throws -> [Registro] {
+        guard let uid = dbUserID else { return [] }
+
+        struct Row: Decodable, Sendable {
+            let id: Int64
+            let nombre: String
+            let estado: String
+            let fecha_creacion: String
+        }
+
+        let schema = UserSchemaNaming.schemaName(publicUsersId: uid)
+        let rows: [Row] = try await client
+            .schema(schema)
+            .from("registros")
+            .select("id,nombre,estado,fecha_creacion")
+            .execute()
+            .value
+
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let mapped = rows.map { row -> Registro in
+            let date = fmt.date(from: row.fecha_creacion)
+                ?? ISO8601DateFormatter().date(from: row.fecha_creacion)
+                ?? Date()
+            return Registro(
+                id: UUID(),
+                dbRowId: row.id,
+                nombre: row.nombre,
+                estado: row.estado,
+                createdAt: date
+            )
+        }
+        return mapped.sorted { $0.createdAt > $1.createdAt }
     }
 
     private func fetchDBUserID(correo: String) async throws -> Int64? {
@@ -138,7 +211,7 @@ final class SupabaseService: ObservableObject {
         return id
     }
 
-    private func createUserSchema(userId: Int64) async throws {
+    private func callCreateUserSchemaRPC(userId: Int64) async throws {
         _ = try await client
             .rpc("create_user_schema", params: CreateUserSchemaParams(user_id: userId))
             .execute()

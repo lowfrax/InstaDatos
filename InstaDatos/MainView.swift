@@ -16,6 +16,7 @@ struct MainView: View {
                         NavigationLink {
                             RegistrosView()
                                 .environmentObject(store)
+                                .environmentObject(supabase)
                         } label: {
                             SoftCard {
                                 HStack(alignment: .center, spacing: 14) {
