@@ -22,6 +22,12 @@ final class SupabaseService: ObservableObject {
     @Published var authEmail: String?
     @Published var dbUserID: Int64?
 
+    /// Esquema asociado al usuario actual (`user_<public.users.id>`).
+    var userSchemaName: String? {
+        guard let id = dbUserID else { return nil }
+        return UserSchemaNaming.schemaName(publicUsersId: id)
+    }
+
     private init() {
         client = SupabaseClient(
             supabaseURL: SupabaseConfig.url,

@@ -5,6 +5,10 @@ enum WebhookConfig {
 }
 
 struct WebhookPayload: Encodable {
+    /// Id del registro (fila en `registros` del esquema del usuario, o UUID local si aún no hay fila).
+    let registroId: String
+    /// Esquema del usuario, p. ej. `user_1` para `public.users.id = 1`.
+    let schemaNombre: String
     let registroNombre: String
     let mensaje: String
     let userId: Int64?
@@ -12,12 +16,26 @@ struct WebhookPayload: Encodable {
 }
 
 enum WebhookService {
-    static func sendRegistroMessage(registroNombre: String, mensaje: String, userId: Int64?, correo: String?) async throws {
+    static func sendRegistroMessage(
+        registroId: String,
+        schemaNombre: String,
+        registroNombre: String,
+        mensaje: String,
+        userId: Int64?,
+        correo: String?
+    ) async throws {
         var req = URLRequest(url: WebhookConfig.url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let payload = WebhookPayload(registroNombre: registroNombre, mensaje: mensaje, userId: userId, correo: correo)
+        let payload = WebhookPayload(
+            registroId: registroId,
+            schemaNombre: schemaNombre,
+            registroNombre: registroNombre,
+            mensaje: mensaje,
+            userId: userId,
+            correo: correo
+        )
         req.httpBody = try JSONEncoder().encode(payload)
 
         let (_, resp) = try await URLSession.shared.data(for: req)

@@ -185,7 +185,11 @@ struct RegistroDetailView: View {
 
         Task {
             do {
+                let registroIdStr = registro.dbRowId.map { String($0) } ?? registro.id.uuidString
+                let schemaNombre = supabase.userSchemaName ?? ""
                 try await WebhookService.sendRegistroMessage(
+                    registroId: registroIdStr,
+                    schemaNombre: schemaNombre,
                     registroNombre: registro.nombre,
                     mensaje: trimmed,
                     userId: supabase.dbUserID,

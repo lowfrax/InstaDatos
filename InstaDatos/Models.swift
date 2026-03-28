@@ -2,7 +2,10 @@ import Foundation
 
 struct Registro: Identifiable, Hashable, Codable {
     var id: UUID = UUID()
+    /// Id de la fila en `user_<id>.registros` (Supabase), si aplica.
+    var dbRowId: Int64?
     var nombre: String
+    var estado: String = "activo"
     var createdAt: Date = Date()
 }
 
