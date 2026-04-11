@@ -3,6 +3,10 @@ import SwiftUI
 enum AppTheme {
     static let bg = Color(hex: 0xFFFFFF)
     static let accent = Color(hex: 0xF98F53)
+    /// Marca / mensajes humano (chat OpenClaw)
+    static let brandOrange = Color(hex: 0xF47C20)
+    /// Mensajes IA (chat)
+    static let aiGrey = Color(hex: 0x94A3B8)
     static let muted = Color(hex: 0xBDB8B4)
     static let ink = Color(hex: 0x705F59)
     static let cocoa = Color(hex: 0x7A5A4F)

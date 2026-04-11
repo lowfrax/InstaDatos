@@ -29,9 +29,13 @@ final class SupabaseService: ObservableObject {
     }
 
     private init() {
+        let authOpts = SupabaseClientOptions.AuthOptions(
+            emitLocalSessionAsInitialSession: true
+        )
         client = SupabaseClient(
             supabaseURL: SupabaseConfig.url,
-            supabaseKey: SupabaseConfig.anonKey
+            supabaseKey: SupabaseConfig.anonKey,
+            options: SupabaseClientOptions(auth: authOpts)
         )
 
         Task {
@@ -212,9 +216,128 @@ final class SupabaseService: ObservableObject {
     }
 
     private func callCreateUserSchemaRPC(userId: Int64) async throws {
-        _ = try await client
-            .rpc("create_user_schema", params: CreateUserSchemaParams(user_id: userId))
+        let builder = try client.rpc(
+            "create_user_schema",
+            params: CreateUserSchemaParams(user_id: userId)
+        )
+        _ = try await builder.execute()
+    }
+
+    // MARK: - public.chat_openclaw (OpenClaw, misma base que registros)
+
+    func insertChatLine(contenido: String, tipo: String) async throws -> Int64 {
+        guard let uid = dbUserID else {
+            throw NSError(domain: "SupabaseService", code: 6, userInfo: [NSLocalizedDescriptionKey: "Sesión sin id de public.users."])
+        }
+        struct Insert: Encodable, Sendable {
+            let contenido: String
+            let tipo: String
+            let user_id: Int64
+        }
+        struct Row: Decodable, Sendable { let id: Int64 }
+
+        let inserted: [Row] = try await client
+            .from("chat_openclaw")
+            .insert(Insert(contenido: contenido, tipo: tipo, user_id: uid))
+            .select("id")
             .execute()
+            .value
+
+        guard let id = inserted.first?.id else {
+            throw NSError(domain: "SupabaseService", code: 7, userInfo: [NSLocalizedDescriptionKey: "Insert en chat_openclaw sin id."])
+        }
+        return id
+    }
+
+    func fetchChatLines() async throws -> [PersistedChatLine] {
+        guard let uid = dbUserID else { return [] }
+
+        struct Row: Decodable, Sendable {
+            let id: Int64
+            let contenido: String?
+            let tipo: String?
+            let created_at: String
+        }
+
+        // `PostgrestFilterValue` admite `Int`/`String`, no `Int64` directamente (supabase-swift 2.x).
+        let rows: [Row] = try await client
+            .from("chat_openclaw")
+            .select("id,contenido,tipo,created_at")
+            .eq("user_id", value: String(uid))
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fmt2 = ISO8601DateFormatter()
+        fmt2.formatOptions = [.withInternetDateTime]
+
+        return rows.map { row in
+            Self.mapChatRow(
+                id: row.id,
+                contenido: row.contenido,
+                tipo: row.tipo,
+                created_at: row.created_at,
+                fmt: fmt,
+                fmt2: fmt2
+            )
+        }
+    }
+
+    /// Última fila del chat del usuario (por `created_at` descendente). Sirve para sondear hasta que la respuesta más reciente sea `IA`.
+    func fetchLatestChatLine() async throws -> PersistedChatLine? {
+        guard let uid = dbUserID else { return nil }
+
+        struct Row: Decodable, Sendable {
+            let id: Int64
+            let contenido: String?
+            let tipo: String?
+            let created_at: String
+        }
+
+        let rows: [Row] = try await client
+            .from("chat_openclaw")
+            .select("id,contenido,tipo,created_at")
+            .eq("user_id", value: String(uid))
+            .order("created_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value
+
+        let fmt = ISO8601DateFormatter()
+        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fmt2 = ISO8601DateFormatter()
+        fmt2.formatOptions = [.withInternetDateTime]
+
+        guard let row = rows.first else { return nil }
+        return Self.mapChatRow(
+            id: row.id,
+            contenido: row.contenido,
+            tipo: row.tipo,
+            created_at: row.created_at,
+            fmt: fmt,
+            fmt2: fmt2
+        )
+    }
+
+    private static func mapChatRow(
+        id: Int64,
+        contenido: String?,
+        tipo: String?,
+        created_at: String,
+        fmt: ISO8601DateFormatter,
+        fmt2: ISO8601DateFormatter
+    ) -> PersistedChatLine {
+        let date = fmt.date(from: created_at)
+            ?? fmt2.date(from: created_at)
+            ?? Date()
+        return PersistedChatLine(
+            id: id,
+            contenido: contenido ?? "",
+            tipo: tipo ?? "contexto",
+            createdAt: date
+        )
     }
 
     private static func hashPassword(_ password: String) -> String {

@@ -47,6 +47,39 @@ struct MainView: View {
                         }
                         .buttonStyle(.plain)
 
+                        NavigationLink {
+                            ChatView()
+                                .environmentObject(supabase)
+                        } label: {
+                            SoftCard {
+                                HStack(alignment: .center, spacing: 14) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(AppTheme.brandOrange.opacity(0.18))
+                                            .frame(width: 52, height: 52)
+                                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundStyle(AppTheme.brandOrange)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Chat")
+                                            .font(.headline)
+                                            .foregroundStyle(AppTheme.ink)
+                                        Text("OpenClaw: mensajes guardados en Supabase.")
+                                            .font(.subheadline)
+                                            .foregroundStyle(AppTheme.cocoa.opacity(0.75))
+                                    }
+
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundStyle(AppTheme.muted)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+
                         Spacer(minLength: 20)
                     }
                     .padding(20)

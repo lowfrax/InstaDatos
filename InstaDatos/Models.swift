@@ -21,3 +21,24 @@ struct ChatMessage: Identifiable, Hashable, Codable {
     var timestamp: Date = Date()
 }
 
+/// Fila de `public.chat` (OpenClaw / historial persistente).
+struct PersistedChatLine: Identifiable, Hashable {
+    let id: Int64
+    var contenido: String
+    /// Valores esperados: `humano`, `IA`, `contexto`.
+    var tipo: String
+    var createdAt: Date
+
+    var isHumano: Bool {
+        tipo.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "humano"
+    }
+
+    var isIA: Bool {
+        tipo.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "ia"
+    }
+
+    var isContexto: Bool {
+        tipo.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "contexto"
+    }
+}
+

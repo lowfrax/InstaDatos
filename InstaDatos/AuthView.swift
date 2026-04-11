@@ -34,16 +34,29 @@ struct AuthView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("InstaDatos")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .foregroundStyle(AppTheme.ink)
+                    VStack(spacing: 14) {
+                        HStack {
+                            Spacer(minLength: 0)
+                            Image("AppLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: 240, maxHeight: 132)
+                                .shadow(color: AppTheme.ink.opacity(0.10), radius: 16, x: 0, y: 8)
+                            Spacer(minLength: 0)
+                        }
 
-                        Text("Crea tablas y registros por lenguaje natural.")
-                            .font(.subheadline)
-                            .foregroundStyle(AppTheme.cocoa.opacity(0.85))
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("InstaDatos")
+                                .font(.system(size: 34, weight: .bold, design: .rounded))
+                                .foregroundStyle(AppTheme.ink)
+
+                            Text("Crea tablas y registros por lenguaje natural.")
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.cocoa.opacity(0.85))
+                        }
                     }
-                    .padding(.top, 24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 20)
 
                     Picker("", selection: $mode) {
                         ForEach(Mode.allCases, id: \.self) { m in

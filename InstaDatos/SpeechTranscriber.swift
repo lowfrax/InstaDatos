@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import AVFAudio
 import Speech
 import Combine
 
@@ -36,9 +37,14 @@ final class SpeechTranscriber: ObservableObject {
             return false
         }
 
-        let micAllowed = await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { ok in
-                continuation.resume(returning: ok)
+        let micAllowed: Bool
+        if #available(iOS 17.0, *) {
+            micAllowed = await AVAudioApplication.requestRecordPermission()
+        } else {
+            micAllowed = await withCheckedContinuation { continuation in
+                AVAudioSession.sharedInstance().requestRecordPermission { ok in
+                    continuation.resume(returning: ok)
+                }
             }
         }
 
