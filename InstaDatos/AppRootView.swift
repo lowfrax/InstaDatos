@@ -13,7 +13,7 @@ struct AppRootView: View {
                     .environmentObject(supabase)
             }
         }
-        .txtInputAutocapitalization(.never)
+        
         .tint(AppTheme.accent)
         .preferredColorScheme(.light)
     }
