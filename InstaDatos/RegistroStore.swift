@@ -15,10 +15,6 @@ final class RegistroStore: ObservableObject {
         registros.insert(r, at: 0)
     }
 
-    func messages(for registroID: UUID) -> [ChatMessage] {
-        messagesByRegistroID[registroID, default: []]
-    }
-
     func appendMessage(_ message: ChatMessage, to registroID: UUID) {
         messagesByRegistroID[registroID, default: []].append(message)
     }
